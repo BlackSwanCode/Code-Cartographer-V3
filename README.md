@@ -1,10 +1,10 @@
-# CodeCartographer v2.0 🗺️
+# CodeCartographer v3.0 🗺️
 
 > **Analyseur de corpus de code source multi-langage**
 > 
 > *Approche linguistique de corpus appliquée au développement logiciel*
 
-CodeCartographer v2.0 transforme l'analyse statique de code en une discipline scientifique, empruntant ses méthodologies à la **linguistique de corpus**, la **stylométrie** et l'**analyse de discours**.
+CodeCartographer v3.0 transforme l'analyse statique de code en une discipline scientifique, empruntant ses méthodologies à la **linguistique de corpus**, la **stylométrie** et l'**analyse de discours**.
 
 ---
 
