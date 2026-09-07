@@ -1,0 +1,477 @@
+# Méthodologie d'analyse d'un corpus de codes sources
+
+## Objectif
+
+Reconstruire la structure d'un corpus logiciel sans disposer de son historique Git, afin de répondre à plusieurs questions :
+
+- Quel est le rôle de chaque programme ?
+- Existe-t-il des dépendances entre eux ?
+- Peut-on reconstruire leur évolution ?
+- Existe-t-il des copies, des forks ou des réécritures ?
+- Quels concepts sont réutilisés ?
+- Quelle est l'architecture implicite du projet ?
+
+---
+
+# 1. Analyse statique
+
+L'étude repose principalement sur une **analyse statique**.
+
+Aucun programme n'est exécuté.
+
+L'analyse porte uniquement sur :
+
+- les fichiers
+- leur contenu
+- leur structure syntaxique
+- les identifiants
+- les signatures
+- les dépendances
+- les commentaires
+- les chaînes de caractères
+
+Cette approche évite les effets de bord tout en permettant une reconstruction relativement fidèle de l'architecture.
+
+---
+
+# 2. Reconstruction d'AST (Abstract Syntax Tree)
+
+Chaque fichier Python est représenté comme un arbre syntaxique abstrait.
+
+Exemple simplifié :
+
+```text
+Module
+ ├── Imports
+ ├── Classes
+ │     ├── Methods
+ │     └── Attributes
+ ├── Functions
+ └── Global variables
+```
+
+L'AST permet notamment de comparer :
+
+- les classes
+- les signatures
+- les méthodes
+- les décorateurs
+- les constantes
+- les annotations
+
+sans être perturbé par le style de codage.
+
+---
+
+# 3. Normalisation du code
+
+Avant comparaison, plusieurs transformations sont appliquées.
+
+## Suppression
+
+- espaces
+- commentaires
+- lignes vides
+- indentation
+- ordre de certains imports
+
+## Conservation
+
+- noms de classes
+- signatures
+- appels de fonctions
+- structure des blocs
+- ordre logique des instructions
+
+Cette étape permet de distinguer une différence cosmétique d'une différence algorithmique.
+
+---
+
+# 4. Similarité syntaxique
+
+Deux fonctions sont comparées selon plusieurs niveaux.
+
+## Niveau 1
+
+Signature
+
+```python
+def mutate(genome):
+```
+
+## Niveau 2
+
+Suite des instructions
+
+```python
+for
+if
+append
+return
+```
+
+## Niveau 3
+
+Arbre syntaxique
+
+Deux arbres presque identiques indiquent souvent une copie ou une dérivation.
+
+---
+
+# 5. Graphe de dépendances
+
+Les imports sont interprétés comme un graphe orienté.
+
+```text
+Editor
+   │
+   ▼
+Genome
+   │
+   ▼
+Mutation
+```
+
+Cela permet d'identifier :
+
+- les noyaux
+- les bibliothèques internes
+- les modules centraux
+- les modules spécialisés
+
+---
+
+# 6. Analyse des identifiants
+
+Les noms utilisés constituent une information très riche.
+
+Exemple :
+
+```
+Genome
+GlyphDNA
+OrganismGenome
+MutationEngine
+```
+
+Ces familles lexicales révèlent souvent :
+
+- une continuité conceptuelle
+- un héritage
+- une évolution du vocabulaire
+
+---
+
+# 7. Détection de familles de classes
+
+Les classes sont regroupées selon :
+
+- leur nom
+- leurs attributs
+- leurs méthodes
+- leurs relations
+
+Exemple :
+
+```text
+Genome
+SyntheticGenome
+GlyphDNA
+OrganismGenome
+```
+
+suggèrent une famille conceptuelle commune.
+
+---
+
+# 8. Analyse des signatures
+
+Les signatures sont comparées.
+
+Exemple :
+
+```python
+def mutate(...)
+```
+
+présent dans plusieurs fichiers est un indice faible.
+
+En revanche,
+
+```python
+def mutate(genome, probability=0.25):
+```
+
+avec le même corps devient un indice fort.
+
+---
+
+# 9. Comparaison des séquences d'appels
+
+Chaque fonction peut être représentée comme une séquence.
+
+Exemple
+
+```
+mutation
+
+↓
+
+fitness
+
+↓
+
+selection
+
+↓
+
+render
+
+↓
+
+export
+```
+
+Deux séquences proches indiquent souvent une parenté.
+
+---
+
+# 10. Reconstruction des pipelines
+
+Les appels successifs permettent d'identifier un pipeline.
+
+Exemple
+
+```
+Parser
+
+↓
+
+Interpreter
+
+↓
+
+Renderer
+
+↓
+
+Exporter
+```
+
+Ces pipelines sont ensuite comparés entre fichiers.
+
+---
+
+# 11. Analyse des concepts
+
+Une couche supplémentaire consiste à détecter les concepts récurrents.
+
+Exemple
+
+```
+mutation
+génome
+fitness
+glyph
+oracle
+rune
+temporal
+fractal
+```
+
+Ces concepts sont regroupés en familles.
+
+---
+
+# 12. Analyse des motifs (Patterns)
+
+Un motif est une structure récurrente.
+
+Exemple
+
+```
+Etat
+
+↓
+
+Transformation
+
+↓
+
+Evaluation
+
+↓
+
+Nouvel état
+```
+
+Ce motif apparaît dans plusieurs branches malgré des domaines différents.
+
+---
+
+# 13. Détection de filiation
+
+La filiation repose sur un faisceau d'indices.
+
+## Très forte
+
+- classes identiques
+- fonctions identiques
+- signatures identiques
+- mêmes structures internes
+
+## Forte
+
+- mêmes pipelines
+- mêmes objets
+- mêmes algorithmes
+
+## Moyenne
+
+- vocabulaire identique
+- organisation similaire
+
+## Faible
+
+- uniquement le thème
+
+---
+
+# 14. Reconstruction de l'évolution
+
+Sans historique Git, l'évolution est estimée à partir de :
+
+- enrichissement des classes
+- ajout de modules
+- spécialisation
+- factorisation
+- apparition d'interfaces
+- augmentation des exports
+
+Le principe général est :
+
+```
+Prototype
+
+↓
+
+Version enrichie
+
+↓
+
+Plateforme
+
+↓
+
+Écosystème
+```
+
+---
+
+# 15. Analyse des architectures
+
+Au-delà des fichiers, on compare les architectures.
+
+Exemple
+
+```
+Entrée
+
+↓
+
+Transformation
+
+↓
+
+Visualisation
+
+↓
+
+Export
+```
+
+ou
+
+```
+Etat
+
+↓
+
+Mutation
+
+↓
+
+Expression
+
+↓
+
+Analyse
+```
+
+Ces architectures sont souvent plus révélatrices que les fonctions elles-mêmes.
+
+---
+
+# 16. Graphe conceptuel
+
+L'ensemble du corpus peut être représenté comme un réseau.
+
+```
+Genome
+
+├── Mutation
+
+├── Fitness
+
+├── Glyph
+
+└── Export
+```
+
+Les nœuds les plus centraux deviennent les concepts structurants.
+
+---
+
+# 17. Heuristiques utilisées
+
+Les conclusions ne reposent jamais sur un seul indice.
+
+Plusieurs critères sont combinés :
+
+- proximité syntaxique
+- proximité lexicale
+- proximité structurelle
+- proximité architecturale
+- proximité algorithmique
+- proximité fonctionnelle
+
+Une filiation est retenue uniquement lorsqu'un ensemble cohérent d'indices converge.
+
+---
+
+# 18. Limites
+
+Une analyse statique ne permet pas de démontrer :
+
+- l'auteur d'un code
+- l'ordre exact des versions
+- une copie volontaire
+- une influence historique certaine
+
+Elle permet en revanche d'établir des **hypothèses étayées** sur les relations entre les fichiers.
+
+---
+
+# 19. Résultat
+
+La combinaison de ces techniques permet de reconstruire :
+
+- les familles de programmes
+- les noyaux communs
+- les spécialisations
+- les réécritures
+- les convergences
+- les divergences
+- les architectures implicites
+
+sans disposer des dépôts Git, des journaux de versions ou des commentaires historiques.

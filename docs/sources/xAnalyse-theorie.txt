@@ -1,0 +1,618 @@
+# Fondements théoriques d'une analyse de filiation logicielle
+## Approche hybride d'analyse statique, de similarité structurelle et de rétro-ingénierie d'architecture
+
+---
+
+# Résumé
+
+L'objectif de cette étude est de reconstruire la structure d'un corpus logiciel en l'absence de son historique de développement (Git, SVN, Mercurial, etc.). Cette démarche relève de la **rétro-ingénierie logicielle** (*Software Reverse Engineering*) et mobilise plusieurs familles de méthodes issues du génie logiciel, de l'analyse statique, de la détection de clones et de l'analyse de graphes.
+
+L'approche consiste à combiner plusieurs niveaux d'observation :
+
+- analyse lexicale ;
+- analyse syntaxique ;
+- analyse sémantique approximative ;
+- reconstruction d'architecture ;
+- comparaison de graphes ;
+- détection de motifs de conception.
+
+Aucune de ces méthodes n'est suffisante isolément ; c'est leur combinaison qui permet d'établir des hypothèses solides sur les relations entre les programmes.
+
+---
+
+# 1. Analyse statique
+
+## Principe
+
+L'analyse statique consiste à étudier un programme **sans l'exécuter**.
+
+Elle porte notamment sur :
+
+- les fichiers ;
+- les imports ;
+- les fonctions ;
+- les classes ;
+- les dépendances ;
+- les appels ;
+- les structures de contrôle.
+
+Cette famille d'approches est largement utilisée dans :
+
+- SonarQube ;
+- CodeQL ;
+- Coverity ;
+- Clang Static Analyzer ;
+- Pylint ;
+- Pyright.
+
+---
+
+# 2. Représentation par Abstract Syntax Tree (AST)
+
+Le code source est transformé en **Abstract Syntax Tree**.
+
+Exemple
+
+```python
+if x > 10:
+    return mutate(x)
+```
+
+devient
+
+```
+If
+
+├── Compare
+
+├── Name(x)
+
+├── Constant(10)
+
+└── Return
+
+        └── Call
+
+              └── mutate
+```
+
+Cette représentation est indépendante :
+
+- de l'indentation ;
+- des commentaires ;
+- des espaces ;
+- d'une partie de la mise en forme.
+
+Elle permet donc une comparaison beaucoup plus robuste.
+
+---
+
+# 3. Détection de clones
+
+La littérature distingue généralement quatre catégories de clones.
+
+## Type I
+
+Copie exacte.
+
+Seuls changent :
+
+- les espaces ;
+- les commentaires.
+
+---
+
+## Type II
+
+Les noms changent.
+
+Exemple
+
+```python
+mutate(genome)
+```
+
+devient
+
+```python
+mutate(sequence)
+```
+
+mais la logique reste identique.
+
+---
+
+## Type III
+
+Ajouts ou suppressions mineures.
+
+Exemple
+
+```
+A
+↓
+
+A + journalisation
+
+↓
+
+A + export
+```
+
+La structure générale demeure.
+
+---
+
+## Type IV
+
+Même comportement.
+
+Code complètement différent.
+
+Détection beaucoup plus difficile.
+
+Elle nécessite souvent une représentation plus abstraite.
+
+---
+
+# 4. Analyse de similarité
+
+Plusieurs métriques sont classiquement employées.
+
+## Distance de Levenshtein
+
+Mesure le nombre minimal de modifications entre deux chaînes.
+
+Très utile pour :
+
+- signatures ;
+- identifiants ;
+- expressions.
+
+---
+
+## Similarité de Jaccard
+
+Deux ensembles
+
+```
+A
+
+=
+
+{Genome,
+ Mutation,
+ Export}
+
+B
+
+=
+
+{Genome,
+ Mutation,
+ Render}
+```
+
+donnent
+
+```
+J(A,B)
+
+=
+
+|intersection|
+
+-----------------
+
+|union|
+```
+
+Très utilisée pour comparer :
+
+- imports ;
+- ensembles de fonctions ;
+- concepts.
+
+---
+
+## Similarité cosinus
+
+Chaque fichier est représenté comme un vecteur de caractéristiques.
+
+```
+Genome      3
+
+Mutation    8
+
+Glyph       2
+
+Oracle      0
+```
+
+Le cosinus mesure alors leur proximité dans un espace multidimensionnel.
+
+Cette approche est très utilisée en fouille de logiciels (*Software Mining*).
+
+---
+
+# 5. Program Dependence Graph (PDG)
+
+Le **Program Dependence Graph** représente :
+
+- les dépendances de contrôle ;
+- les dépendances de données.
+
+Exemple
+
+```
+Genome
+
+↓
+
+Mutate
+
+↓
+
+Fitness
+
+↓
+
+Selection
+
+↓
+
+Export
+```
+
+Deux programmes possédant un PDG proche sont souvent très apparentés.
+
+---
+
+# 6. Code Property Graph (CPG)
+
+Le **Code Property Graph** combine trois représentations.
+
+```
+AST
+
++
+
+Control Flow Graph
+
++
+
+Program Dependence Graph
+```
+
+Cette fusion permet une représentation très riche.
+
+Elle est notamment utilisée dans :
+
+- Joern ;
+- CodeQL ;
+- analyses de sécurité.
+
+---
+
+# 7. Analyse des graphes
+
+Une fois les dépendances reconstruites, le projet devient un graphe.
+
+```
+Editor
+
+↓
+
+Genome
+
+↓
+
+MutationEngine
+
+↓
+
+Renderer
+```
+
+Les outils classiques de théorie des graphes permettent alors de calculer :
+
+- centralité ;
+- modularité ;
+- composantes connexes ;
+- profondeur ;
+- cycles.
+
+---
+
+# 8. Analyse des motifs (Patterns)
+
+Les architectures sont souvent plus révélatrices que le code.
+
+Exemple
+
+```
+Etat
+
+↓
+
+Transformation
+
+↓
+
+Evaluation
+
+↓
+
+Nouvel état
+```
+
+Ce motif peut apparaître :
+
+- dans un moteur génétique ;
+- dans un moteur graphique ;
+- dans un simulateur.
+
+La reconnaissance de ces motifs relève de la détection de **Design Patterns** et de **Architectural Patterns**.
+
+---
+
+# 9. Analyse des identifiants
+
+Les noms constituent un signal extrêmement riche.
+
+Par exemple
+
+```
+Genome
+
+GlyphDNA
+
+SyntheticGenome
+
+OrganismGenome
+```
+
+forment une famille lexicale.
+
+L'étude des identifiants s'apparente à une analyse linguistique appliquée au logiciel.
+
+---
+
+# 10. Fouille de logiciels (Software Repository Mining)
+
+Même sans dépôt Git, plusieurs techniques de **Software Repository Mining** restent applicables.
+
+Par exemple :
+
+- fréquence des concepts ;
+- apparition de nouvelles classes ;
+- enrichissement progressif ;
+- spécialisation de modules.
+
+Cela permet d'estimer une chronologie probable.
+
+---
+
+# 11. Reconstruction de l'évolution
+
+L'évolution est souvent reconstruite grâce à plusieurs indices.
+
+Prototype
+
+↓
+
+Ajout d'interface
+
+↓
+
+Ajout d'exports
+
+↓
+
+Ajout de modules
+
+↓
+
+Factorisation
+
+↓
+
+Framework
+
+Ce schéma est très fréquent dans les projets expérimentaux.
+
+---
+
+# 12. Analyse conceptuelle
+
+Au-delà du code, chaque projet manipule des concepts.
+
+Exemple
+
+```
+mutation
+
+fitness
+
+oracle
+
+glyph
+
+fractal
+
+rune
+
+collapse
+
+timeline
+```
+
+Ces concepts peuvent être représentés sous forme d'un réseau sémantique.
+
+Les nœuds les plus centraux correspondent généralement aux abstractions fondamentales du projet.
+
+---
+
+# 13. Reconstruction d'une architecture implicite
+
+L'objectif ultime consiste à reconstruire une architecture globale.
+
+Par exemple
+
+```
+Entrée
+
+↓
+
+Analyse
+
+↓
+
+Transformation
+
+↓
+
+Evaluation
+
+↓
+
+Visualisation
+
+↓
+
+Export
+```
+
+Cette architecture peut ensuite être comparée entre plusieurs programmes.
+
+---
+
+# 14. Classification des filiations
+
+Une filiation peut être évaluée selon plusieurs niveaux.
+
+## Niveau A
+
+Copie directe
+
+Indice :
+
+- fonctions identiques ;
+- signatures identiques ;
+- même AST.
+
+---
+
+## Niveau B
+
+Fork
+
+Le noyau est identique mais enrichi.
+
+Exemple
+
+```
+Version 1
+
+↓
+
+Version 2
+
++ interface
+
++ export
+
++ statistiques
+```
+
+---
+
+## Niveau C
+
+Réécriture
+
+Même architecture.
+
+Code largement différent.
+
+---
+
+## Niveau D
+
+Convergence
+
+Deux programmes indépendants adoptent une architecture similaire parce qu'ils répondent au même problème.
+
+---
+
+# 15. Limites
+
+Une analyse statique ne permet pas de démontrer :
+
+- l'identité d'un auteur ;
+- l'antériorité exacte ;
+- l'intention du développeur ;
+- la chronologie réelle.
+
+Elle permet en revanche de construire des **hypothèses argumentées**, fondées sur un ensemble cohérent d'indices.
+
+---
+
+# 16. Références scientifiques
+
+Les méthodes décrites s'inscrivent dans plusieurs domaines de recherche.
+
+## Génie logiciel
+
+- Software Reverse Engineering
+- Software Architecture Recovery
+- Software Evolution
+- Software Maintenance
+
+## Analyse statique
+
+- Abstract Syntax Trees
+- Static Program Analysis
+- Symbolic Analysis
+
+## Détection de clones
+
+- Code Clone Detection
+- Clone Genealogy
+- Tree Edit Distance
+- Token Similarity
+
+## Théorie des graphes
+
+- Program Dependence Graph
+- Code Property Graph
+- Graph Mining
+- Graph Isomorphism
+
+## Fouille de logiciels
+
+- Software Repository Mining
+- Mining Software Repositories (MSR)
+- Evolutionary Software Analysis
+
+## Analyse sémantique
+
+- Identifier Analysis
+- Topic Modeling
+- Semantic Clustering
+- Program Embeddings
+
+---
+
+# Conclusion
+
+L'étude d'un corpus logiciel ne repose pas sur une unique technique mais sur la combinaison de plusieurs représentations complémentaires :
+
+- représentation lexicale ;
+- représentation syntaxique (AST) ;
+- représentation structurelle (PDG, CPG) ;
+- représentation architecturale ;
+- représentation conceptuelle ;
+- représentation graphique.
+
+La convergence de ces différentes analyses permet de reconstruire avec un bon niveau de confiance les familles de programmes, leurs spécialisations, leurs réécritures et leurs filiations probables, même en l'absence complète d'un historique de développement.
