@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Corpus Mapper v2.0
+Corpus Mapper v3.0
 Détecte le langage de programmation de fichiers texte et les renomme avec la bonne extension.
 Interface CLI avec statistiques et progression "Feng Shui".
+Support de l'exploration récursive des sous-dossiers.
 """
 
 import argparse
@@ -13,6 +14,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 from rich.table import Table
 from rich.panel import Panel
+from rich.tree import Tree
 
 # --- Configuration des Heuristiques ---
 PATTERNS = {
@@ -38,10 +40,61 @@ def detect_language(content: str) -> str:
             return ext
     return '.unknown'
 
+def collect_files_recursively(directory: Path, extension: str) -> list:
+    """Collecte récursivement tous les fichiers avec l'extension donnée."""
+    files = []
+
+    # Parcours récursif avec rglob
+    for filepath in directory.rglob(f"*{extension}"):
+        if filepath.is_file():
+            files.append(filepath)
+
+    # Gestion case-insensitive pour les extensions
+    # Si l'extension est en minuscules, vérifier aussi en majuscules
+    if extension == extension.lower():
+        for filepath in directory.rglob(f"*{extension.upper()}"):
+            if filepath.is_file():
+                files.append(filepath)
+
+    # Supprimer les doublons
+    return list(set(files))
+
+def display_tree(directory: Path, files: list, max_items: int = 3) -> Tree:
+    """Affiche l'arborescence des fichiers trouvés."""
+    tree = Tree(f"📁 [bold cyan]{directory.name}[/bold cyan]")
+
+    # Grouper les fichiers par dossier parent
+    files_by_dir = {}
+    for filepath in files:
+        parent = filepath.parent
+        if parent not in files_by_dir:
+            files_by_dir[parent] = []
+        files_by_dir[parent].append(filepath.name)
+
+    # Construire l'arbre
+    for idx, (parent, filenames) in enumerate(sorted(files_by_dir.items())):
+        if idx >= max_items and len(files_by_dir) > max_items:
+            tree.add(f"[dim]... et {len(files_by_dir) - max_items} autres dossiers[/dim]")
+            break
+
+        rel_path = parent.relative_to(directory)
+        if str(rel_path) == '.':
+            branch = tree.add(f"📄 [green]{len(filenames)} fichier(s)[/green]")
+        else:
+            branch = tree.add(f"📂 [yellow]{rel_path}[/yellow] [dim]({len(filenames)} fichiers)[/dim]")
+
+        # Afficher quelques noms de fichiers
+        for filename in filenames[:3]:
+            branch.add(f"└── {filename}")
+        if len(filenames) > 3:
+            branch.add(f"[dim]└── ... et {len(filenames) - 3} autres[/dim]")
+
+    return tree
+
 def main():
     # --- 1. Configuration CLI ---
     parser = argparse.ArgumentParser(
-        description="Détecte le langage de fichiers texte et les renomme avec la bonne extension.",
+        description="Détecte le langage de fichiers texte et les renomme avec la bonne extension (recherche récursive).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="Exemples:\n  python corpus_mapper.py ./PS\n  python corpus_mapper.py ./MonCorpus --dry-run --bytes 4096"
     )
@@ -49,9 +102,14 @@ def main():
     parser.add_argument("-e", "--ext", default=".txt", help="Extension cible à traiter (défaut: .txt)")
     parser.add_argument("-b", "--bytes", type=int, default=2048, help="Nombre d'octets à lire pour l'analyse (défaut: 2048)")
     parser.add_argument("--dry-run", action="store_true", help="Mode simulation : n'applique aucun renommage")
-    
+    parser.add_argument("-r", "--recursive", action="store_true", default=True, help="Parcours récursif (activé par défaut)")
+    parser.add_argument("--no-recursive", action="store_true", help="Désactive le parcours récursif")
+
     args = parser.parse_args()
     console = Console()
+
+    # Gérer la récursivité
+    recursive = not args.no_recursive
 
     # --- 2. Validation ---
     target_dir = Path(args.directory)
@@ -59,27 +117,37 @@ def main():
         console.print(f"[bold red]Erreur : Le répertoire '{target_dir}' n'existe pas.[/bold red]")
         return
 
-    files_to_process = list(target_dir.glob(f"*{args.ext.lower()}")) + list(target_dir.glob(f"*{args.ext.upper()}"))
-    # Supprimer les doublons si le système est case-insensitive
-    files_to_process = list(set(files_to_process))
-    
+    # --- 3. Collection récursive des fichiers ---
+    if recursive:
+        files_to_process = collect_files_recursively(target_dir, args.ext)
+    else:
+        files_to_process = list(target_dir.glob(f"*{args.ext}")) + list(target_dir.glob(f"*{args.ext.upper()}"))
+        files_to_process = list(set(files_to_process))
+
     if not files_to_process:
         console.print(f"[yellow]Aucun fichier avec l'extension '{args.ext}' trouvé dans {target_dir}.[/yellow]")
         return
 
-    # --- 3. Interface "Feng Shui" ---
+    # --- 4. Interface "Feng Shui" ---
     console.print(Panel.fit(
-        f"[bold cyan]Corpus Mapper v2.0[/bold cyan]\n"
+        f"[bold cyan]Corpus Mapper v3.0 (Récursif)[/bold cyan]\n"
         f"Répertoire : [green]{target_dir.absolute()}[/green]\n"
-        f"Fichiers à traiter : [bold]{len(files_to_process)}[/bold] *{args.ext}\n"
-        f"Mode : [bold red]SIMULATION (Dry Run)[/bold red]" if args.dry_run else f"Mode : [bold green]ACTIF[/bold green]",
+        f"Fichiers trouvés : [bold]{len(files_to_process)}[/bold] *{args.ext}\n"
+        f"Mode : [bold red]SIMULATION (Dry Run)[/bold red]" if args.dry_run else f"Mode : [bold green]ACTIF[/bold green]\n"
+        f"Recherche : [{'bold green' if recursive else 'yellow'}]{'Récursive' if recursive else 'Non récursive'}[/{'bold green' if recursive else 'yellow'}]",
         border_style="cyan"
     ))
 
+    # Afficher l'arborescence des fichiers
+    tree = display_tree(target_dir, files_to_process)
+    console.print(tree)
+    console.print("")
+
     stats = Counter()
     dry_run_actions = []
+    file_count = 0
 
-    # --- 4. Boucle de progression ---
+    # --- 5. Boucle de progression ---
     with Progress(
         SpinnerColumn(spinner_name="dots"),
         TextColumn("[progress.description]{task.description}"),
@@ -89,40 +157,43 @@ def main():
         console=console,
         expand=True
     ) as progress:
-        
+
         task = progress.add_task(f"[cyan]Analyse en cours...", total=len(files_to_process))
 
         for filepath in files_to_process:
-            progress.update(task, description=f"[cyan]Analyse de [white]{filepath.name}[/white]")
-            
+            # Afficher le chemin relatif pour plus de clarté
+            rel_path = filepath.relative_to(target_dir)
+            progress.update(task, description=f"[cyan]Analyse de [white]{rel_path}[/white]")
+
             try:
                 with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
                     content = f.read(args.bytes)
-                
+
                 detected_ext = detect_language(content)
                 stats[detected_ext] += 1
+                file_count += 1
 
                 if detected_ext != '.unknown':
                     new_name = filepath.stem + detected_ext
                     new_filepath = filepath.with_name(new_name)
-                    
+
                     if args.dry_run:
-                        dry_run_actions.append(f"[yellow]→[/yellow] {filepath.name} [dim]sera renommé en[/dim] [green]{new_name}[/green]")
+                        dry_run_actions.append(f"[yellow]→[/yellow] {rel_path} [dim]→[/dim] [green]{new_name}[/green]")
                     else:
                         if not new_filepath.exists():
                             filepath.rename(new_filepath)
                         else:
                             stats['.conflict'] += 1
-                            
+
             except Exception as e:
                 stats['.error'] += 1
-                console.print(f"[red]Erreur sur {filepath.name}: {e}[/red]")
-            
+                console.print(f"[red]Erreur sur {rel_path}: {e}[/red]")
+
             progress.advance(task)
 
-    # --- 5. Statistiques Récapitulatives ---
+    # --- 6. Statistiques Récapitulatives ---
     console.print("\n[bold]📊 Rapport d'analyse[/bold]")
-    
+
     table = Table(show_header=True, header_style="bold magenta", border_style="dim")
     table.add_column("Extension détectée", justify="left")
     table.add_column("Nombre de fichiers", justify="right")
@@ -138,14 +209,27 @@ def main():
     console.print(table)
 
     if args.dry_run and dry_run_actions:
-        console.print("\n[bold]📝 Actions qui seraient effectuées (5 premières) :[/bold]")
-        for action in dry_run_actions[:5]:
-            console.print(action)
-        if len(dry_run_actions) > 5:
-            console.print(f"[dim]... et {len(dry_run_actions) - 5} autres.[/dim]")
+        console.print(f"\n[bold]📝 Actions qui seraient effectuées ({len(dry_run_actions)} au total) :[/bold]")
+        # Afficher un échantillon représentatif
+        if len(dry_run_actions) <= 10:
+            for action in dry_run_actions:
+                console.print(action)
+        else:
+            # Afficher les 5 premiers et 5 derniers
+            for action in dry_run_actions[:5]:
+                console.print(action)
+            console.print(f"[dim]... {len(dry_run_actions) - 10} actions intermédiaires ...[/dim]")
+            for action in dry_run_actions[-5:]:
+                console.print(action)
+
         console.print("\n[bold cyan]💡 Astuce :[/bold cyan] Relancez la commande sans [bold]--dry-run[/bold] pour appliquer les changements.")
     else:
-        console.print(f"\n[bold green]✅ Traitement terminé avec succès ![/bold green]")
+        console.print(f"\n[bold green]✅ Traitement terminé avec succès ! ({file_count} fichiers traités)[/bold green]")
+
+    # --- 7. Informations supplémentaires ---
+    if recursive:
+        console.print(f"\n[dim]📁 Arborescence parcourue : {target_dir.absolute()}[/dim]")
+        console.print(f"[dim]📊 Fichiers trouvés dans {len(set(str(p.parent) for p in files_to_process))} dossiers différents[/dim]")
 
 if __name__ == "__main__":
     main()
