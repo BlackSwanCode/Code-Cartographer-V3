@@ -1,0 +1,3 @@
+git clone https://github.com/BlackSwanCode/Code-Cartographer-V3.git
+cd Code-Cartographer-V3
+pip install -e ".[dev]"
