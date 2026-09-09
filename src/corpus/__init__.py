@@ -1,1 +1,0 @@
-"""Module corpus de CodeCartographer."""
